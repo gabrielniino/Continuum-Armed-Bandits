@@ -1,2 +1,2 @@
-streamlit = 1.22.0
-pandas = 2.0.1
+Streamlit = 1.22.0
+Pandas = 2.0.1
