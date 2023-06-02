@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-streamlit = 1.22.0
-pandas = 2.0.1
-nunpy = 1.24.3
-=======
-Streamlit = 1.22.0
-Pandas = 2.0.1
->>>>>>> 32cac308b0c81119d0e9937c09b755ed2e929833
+streamlit == 1.22.0
+pandas == 2.0.1
+numpy>=1.0.0
+
