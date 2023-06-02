@@ -28,6 +28,8 @@ def main():
         melhor_braco = np.random.randint(num_bracos)  # Escolhe aleatoriamente o melhor braço
         melhor_recompensa = simular_recompensa(melhor_braco)
 
+        dados_rodadas = []
+
         for t in range(num_iteracoes):
             if t < num_bracos:
                 # Exploração inicial: seleciona cada braço pelo menos uma vez
@@ -47,19 +49,25 @@ def main():
             arrependimento[t] = melhor_recompensa - recompensa
 
             # Exibe a recompensa do braço selecionado e o índice da rodada
-            print(f"Rodada {t+1}: Recompensa do Braço {braco+1} = {recompensa}")
+            dados_rodada = {"Rodada": t+1, "Braço": braco+1, "Recompensa": recompensa}
+            dados_rodadas.append(dados_rodada)
+
+        # Exibir a tabela de recompensas de cada rodada
+        st.title("Recompensas por Rodada")
+        df = pd.DataFrame(dados_rodadas)
+        st.table(df)
 
         # Retorna as estimativas médias de recompensa para os braços e o arrependimento
-        recompensas_medias = recompensas / n_selecoes
+        recompensas_medias = recompensa / n_selecoes
 
         return recompensas_medias, arrependimento, n_selecoes
 
     def simular_recompensa(braco):
         media = 0.5
         desvio_padrao = 0.1
-        return np.random.normal(media, desvio_padrao)
+        return np.random.normal(media, desvio_padrao)     
 
-    # LAYOULT
+    # LAYOUT
     # Configurando a largura do menu lateral
     st.set_page_config(layout="wide")
 
@@ -76,14 +84,14 @@ def main():
     constante_lipschitz = st.sidebar.slider("Constante de Lipschitz", min_value=0.01, step=0.1)
 
     # Input para o parâmetro de exploração
-    parametro_exploracao = st.sidebar.slider("Parâmetro de Exploração", min_value=0.01, max_value=2.00, step=0.1)
-
-    recompensas_medias, arrependimento, n_selecoes = banditos_armados_continuos(num_bracos, num_iteracoes, constante_lipschitz, parametro_exploracao)
-
+    parametro_exploracao = st.sidebar.slider("Parâmetro de Exploração", min_value=0.01, max_value=1.00, step=0.1)
 
     # Botão para iniciar o algoritmo
     if st.sidebar.button("Iniciar Algoritmo"):
+        recompensas_medias, arrependimento, n_selecoes = banditos_armados_continuos(num_bracos, num_iteracoes, constante_lipschitz, parametro_exploracao)
+
         # Criar um DataFrame para as recompensas médias
+        st.title("Média")
         data = []
         for braco in range(num_bracos):
             data.append({"Braço": braco+1, "Recompensa Média": recompensas_medias[braco]})
@@ -98,6 +106,7 @@ def main():
             st.table(df)
 
         # Criar um DataFrame para o número de seleções
+        st.title("Seleções")
         data = []
         for braco in range(num_bracos):
             data.append({"Braço": braco+1, "Número de Seleções": n_selecoes[braco]})
@@ -112,6 +121,7 @@ def main():
             st.table(df)
 
         # Criar uma lista com os dados do arrependimento
+        st.title("Arrependimento")
         dados_arrependimento = []
         for t in range(num_iteracoes):
             dados_arrependimento.append({"Rodada": t+1, "Arrependimento": arrependimento[t]})
@@ -127,4 +137,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
