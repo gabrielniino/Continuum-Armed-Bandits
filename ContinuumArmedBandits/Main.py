@@ -58,7 +58,7 @@ def main():
         st.table(df)
 
         # Retorna as estimativas médias de recompensa para os braços e o arrependimento
-        recompensas_medias = recompensa / n_selecoes
+        recompensas_medias = recompensas
 
         return recompensas_medias, arrependimento, n_selecoes
 
