@@ -1,6 +1,47 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
+import mysql.connector
+import json
+
+# Função para conectar ao banco de dados
+def connect_to_database():
+    conn = mysql.connector.connect(
+        host='127.0.0.1',
+        user='root',
+        password='',
+        database='lipschitzCAB'
+    )
+    return conn
+
+# Função para criar as tabelas
+def create_tables(conn):
+    cursor = conn.cursor()
+
+    # Tabela de parâmetros
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS parametros (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            num_bracos INT,
+            num_iteracoes INT,
+            constante_lipschitz FLOAT,
+            parametro_exploracao FLOAT
+        )
+    """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS resultados (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            rodada INT,
+            braco INT,
+            recompensa FLOAT,
+            melhor_braco INT,
+            dados_arrependimento TEXT
+        )
+    """)
+
+    conn.commit()
+    cursor.close()
 
 def main():
 
@@ -9,7 +50,7 @@ def main():
 
     def exploracao_ucb(estimativas_recompensa, n_selecoes, parametro_exploracao, constante_lipschitz, t):
         termo_exploracao = np.sqrt(np.log(t + 1) / n_selecoes)
-        limites_superiores_confianca = estimativas_recompensa + parametro_exploracao * termo_exploracao
+        limites_superiores_confianca = estimativas_recompensa.astype(float) + parametro_exploracao * termo_exploracao
 
         # Aplica a condição de Lipschitz aos limites superiores de confiança
         for i in range(len(limites_superiores_confianca)):
@@ -30,6 +71,8 @@ def main():
 
         dados_rodadas = []
 
+        dados_arrependimento = []  # Inicializa a lista vazia
+
         for t in range(num_iteracoes):
             if t < num_bracos:
                 # Exploração inicial: seleciona cada braço pelo menos uma vez
@@ -48,9 +91,25 @@ def main():
             # Calcula o arrependimento
             arrependimento[t] = melhor_recompensa - recompensa
 
+            # Adiciona os dados do arrependimento à lista
+            dados_arrependimento.append({"Rodada": t+1, "Arrependimento": arrependimento[t]})
+
             # Exibe a recompensa do braço selecionado e o índice da rodada
             dados_rodada = {"Rodada": t+1, "Braço": braco+1, "Recompensa": recompensa}
             dados_rodadas.append(dados_rodada)
+
+            dados_arrependimento_json = json.dumps(dados_arrependimento)  # Converte a lista em uma string JSON
+
+            # Armazena os resultados na tabela "resultados"
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO results (rodada, braco, recompensa, melhor_braco, dados_arrependimento)
+                VALUES (%s, %s, %s, %s, %s)
+            """, (t+1, int(braco)+1, float(recompensa), int(melhor_braco)+1, dados_arrependimento_json))
+
+            conn.commit()
+            cursor.close()
+
 
         # Exibir a tabela de recompensas de cada rodada
         st.title("Recompensas por Rodada")
@@ -60,7 +119,7 @@ def main():
         # Retorna as estimativas médias de recompensa para os braços e o arrependimento
         recompensas_medias = recompensas
 
-        return recompensas_medias, arrependimento, n_selecoes
+        return recompensas_medias, arrependimento, n_selecoes, melhor_braco, dados_arrependimento
 
     def simular_recompensa(braco):
         media = 0.5
@@ -88,7 +147,9 @@ def main():
 
     # Botão para iniciar o algoritmo
     if st.sidebar.button("Iniciar Algoritmo"):
-        recompensas_medias, arrependimento, n_selecoes = banditos_armados_continuos(num_bracos, num_iteracoes, constante_lipschitz, parametro_exploracao)
+        conn = connect_to_database()
+        create_tables(conn)
+        recompensas_medias, arrependimento, n_selecoes, melhor_braco, dados_arrependimento = banditos_armados_continuos(num_bracos, num_iteracoes, constante_lipschitz, parametro_exploracao)
 
         # Criar um DataFrame para as recompensas médias
         st.title("Média")
@@ -134,6 +195,15 @@ def main():
 
         # Exibir o braço com a maior recompensa média na tela principal do Streamlit
         st.write(f"Braço com maior recompensa média: {melhor_braco+1}")
+
+        # Armazenar os parâmetros na tabela de parâmetros
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO parametros (num_bracos, num_iteracoes, constante_lipschitz, parametro_exploracao)
+            VALUES (%s, %s, %s, %s)
+        """, (num_bracos, num_iteracoes, constante_lipschitz, parametro_exploracao))
+        conn.commit()
+        cursor.close()
 
 if __name__ == "__main__":
     main()
