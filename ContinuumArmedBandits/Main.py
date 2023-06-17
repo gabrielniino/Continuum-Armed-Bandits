@@ -32,11 +32,9 @@ def create_tables(conn):
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS resultados (
             id INT AUTO_INCREMENT PRIMARY KEY,
-            rodada INT,
-            braco INT,
-            recompensa FLOAT,
             melhor_braco INT,
-            dados_arrependimento TEXT
+            num_selecoes_melhor_braco INT,
+            recompensa_media_melhor_braco FLOAT
         )
     """)
 
@@ -100,16 +98,6 @@ def main():
 
             dados_arrependimento_json = json.dumps(dados_arrependimento)  # Converte a lista em uma string JSON
 
-            # Armazena os resultados na tabela "resultados"
-            cursor = conn.cursor()
-            cursor.execute("""
-                INSERT INTO results (rodada, braco, recompensa, melhor_braco, dados_arrependimento)
-                VALUES (%s, %s, %s, %s, %s)
-            """, (t+1, int(braco)+1, float(recompensa), int(melhor_braco)+1, dados_arrependimento_json))
-
-            conn.commit()
-            cursor.close()
-
 
         # Exibir a tabela de recompensas de cada rodada
         st.title("Recompensas por Rodada")
@@ -170,7 +158,7 @@ def main():
         st.title("Seleções")
         data = []
         for braco in range(num_bracos):
-            data.append({"Braço": braco+1, "Número de Seleções": n_selecoes[braco]})
+            data.append({"Braço": braco+1, "Número de Seleções": int(n_selecoes[braco])})
         df = pd.DataFrame(data)
 
         # Exibir a tabela de número de seleções
@@ -194,7 +182,8 @@ def main():
         melhor_braco = np.argmax(recompensas_medias)
 
         # Exibir o braço com a maior recompensa média na tela principal do Streamlit
-        st.write(f"Braço com maior recompensa média: {melhor_braco+1}")
+        st.title("Braço com maior recompensa média")
+        st.title(melhor_braco+1)
 
         # Armazenar os parâmetros na tabela de parâmetros
         cursor = conn.cursor()
@@ -202,6 +191,16 @@ def main():
             INSERT INTO parametros (num_bracos, num_iteracoes, constante_lipschitz, parametro_exploracao)
             VALUES (%s, %s, %s, %s)
         """, (num_bracos, num_iteracoes, constante_lipschitz, parametro_exploracao))
+        conn.commit()
+        cursor.close()
+
+        # Armazena os resultados na tabela "resultados"
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO resultados (melhor_braco, num_selecoes_melhor_braco, recompensa_media_melhor_braco)
+            VALUES (%s, %s, %s)
+        """, (int(melhor_braco)+1, n_selecoes[melhor_braco], recompensas_medias[melhor_braco]))
+
         conn.commit()
         cursor.close()
 
